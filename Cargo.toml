@@ -1,0 +1,8 @@
+[package]
+name = "inkmlrs"
+version = "0.0.1"
+authors = ["Justin Rubek <rubejus@bvu.edu>"]
+edition = "2018"
+
+[dependencies]
+winit = "0.18.1"
