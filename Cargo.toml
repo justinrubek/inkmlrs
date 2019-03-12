@@ -1,8 +1,9 @@
 [package]
 name = "inkmlrs"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Justin Rubek <rubejus@bvu.edu>"]
 edition = "2018"
 
 [dependencies]
 winit = "0.18.1"
+xml-rs = "0.8"
