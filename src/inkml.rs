@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 
+use crate::render::Point;
+
 #[derive(Debug, Default)]
 pub struct Ink {
     pub traces: Vec<Traces>,
@@ -7,7 +9,7 @@ pub struct Ink {
 
 #[derive(Debug, Default)]
 pub struct Trace {
-    pub vertices: Vec<(f64,f64)>
+    pub vertices: Vec<Point>
 }
 
 #[derive(Debug, Default)]

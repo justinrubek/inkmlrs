@@ -1,23 +1,61 @@
+#[macro_use]
+extern crate vulkano;
 extern crate winit;
 extern crate xml;
 
+use std::sync::Arc;
+
+use vulkano::device::DeviceExtensions;
+use vulkano::instance::{Instance, InstanceExtensions, PhysicalDevice};
+
 mod inkml;
 mod parse;
+mod render;
 
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 
-use self::inkml::{Node, Traces};
+use self::inkml::{Ink,Node,Traces};
 
 fn main() -> Result<(), Box<dyn Error>> {
+    /*
     let file = File::open("file1.inkml")?;
     let file = BufReader::new(file);
     let document = parse::parse_inkml(file)?;
-    // println!("{:?}", document);
+    */
     // document.iter().for_each(|n| println!("{:?}", n));
+    let document: Ink = Default::default();
     
-    // Collect a list of all vertice lists to be rendered
+    draw(document)
+}
+
+fn draw(document: Ink) -> Result<(), Box<dyn Error>> {
+    let instance = Instance::new(None, &InstanceExtensions::none(), None)?;
+    let physical = PhysicalDevice::enumerate(&instance).next().expect("Physical");
+    let context = render::Context::new(physical, &DeviceExtensions::none())?;
+    
+    let mut renderer = {
+        render::Renderer::new(context.clone())?
+    };
+
+    use vulkano::format::Format;
+    use vulkano::framebuffer::Framebuffer;
+    use vulkano::image::{Dimensions,StorageImage};
+    let image = StorageImage::new(context.device.clone(),
+        Dimensions::Dim2d { width: 1024, height: 1024 },
+        Format::R8G8B8A8Unorm, Some(context.queue.family()))?;
+    let framebuffer = Arc::new(Framebuffer::start(renderer.render_pass.clone())
+                               .add(image.clone())?
+                               .build()?);
+    
+    use vulkano::command_buffer::AutoCommandBufferBuilder;
+    use vulkano::format::ClearValue;
+    let command_buffer = AutoCommandBufferBuilder::new(
+        context.device.clone(),
+        context.queue.family())?
+        .begin_render_pass(framebuffer.clone(), false, vec![[1.0, 1.0, 1.0, 1.0].into()])?;
+
     document.iter().filter_map(|n| {
         match n {
             inkml::Node::Traces(inkml::Traces::Trace(inkml::Trace { ref vertices })) => {
@@ -25,7 +63,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             _ => None
         }
-    });
+    }).for_each(|vertices| renderer.add_stroke(vertices.clone()));
+    
+    let command_buffer = renderer.draw(command_buffer)?
+        .end_render_pass()?
+        .build()?;
     
     Ok(())
 }
