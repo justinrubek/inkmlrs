@@ -7,7 +7,9 @@ pub mod lines_vsm {
 layout(location = 0) in vec2 position;
 
 void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
+    vec2 norm_coords = (position + vec2(0.5)) / vec2(1024);
+    gl_Position = vec4(norm_coords, 0.0, 1.0);
+    // gl_Position = vec4((position-512.0) / 512, 0.0, 1.0);
 }
 "
     }

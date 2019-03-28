@@ -5,8 +5,12 @@ extern crate xml;
 
 use std::sync::Arc;
 
+use image::{ImageBuffer, Rgba};
+use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
+use vulkano::command_buffer::CommandBuffer;
 use vulkano::device::DeviceExtensions;
 use vulkano::instance::{Instance, InstanceExtensions, PhysicalDevice};
+use vulkano::sync::GpuFuture;
 
 mod inkml;
 mod parse;
@@ -19,17 +23,16 @@ use std::io::BufReader;
 use self::inkml::{Ink,Node,Traces};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    /*
     let file = File::open("file1.inkml")?;
     let file = BufReader::new(file);
     let document = parse::parse_inkml(file)?;
-    */
     // document.iter().for_each(|n| println!("{:?}", n));
-    let document: Ink = Default::default();
+    //let document: Ink = Default::default();
     
     draw(document)
 }
 
+// TODO: Move this functionality to the renderer
 fn draw(document: Ink) -> Result<(), Box<dyn Error>> {
     let instance = Instance::new(None, &InstanceExtensions::none(), None)?;
     let physical = PhysicalDevice::enumerate(&instance).next().expect("Physical");
@@ -51,10 +54,10 @@ fn draw(document: Ink) -> Result<(), Box<dyn Error>> {
     
     use vulkano::command_buffer::AutoCommandBufferBuilder;
     use vulkano::format::ClearValue;
-    let command_buffer = AutoCommandBufferBuilder::new(
+    let command_buffer = AutoCommandBufferBuilder::primary_one_time_submit(
         context.device.clone(),
         context.queue.family())?
-        .begin_render_pass(framebuffer.clone(), false, vec![[1.0, 1.0, 1.0, 1.0].into()])?;
+        .begin_render_pass(framebuffer.clone(), false, vec![[1.0, 0.0, 1.0, 1.0].into()])?;
 
     document.iter().filter_map(|n| {
         match n {
@@ -64,10 +67,22 @@ fn draw(document: Ink) -> Result<(), Box<dyn Error>> {
             _ => None
         }
     }).for_each(|vertices| renderer.add_stroke(vertices.clone()));
+
+    let buf = CpuAccessibleBuffer::from_iter(context.device.clone(), BufferUsage::all(),
+                                            (0 .. 1024 * 1024 * 4).map(|_| 0u8))
+                                            .expect("failed to create buffer");
     
     let command_buffer = renderer.draw(command_buffer)?
         .end_render_pass()?
+        .copy_image_to_buffer(image.clone(), buf.clone())?
         .build()?;
+    
+    let finished = command_buffer.execute(context.queue.clone())?;
+    finished.then_signal_fence_and_flush()?.wait(None)?;
+
+    let buffer_content = buf.read().unwrap();
+    let image = ImageBuffer::<Rgba<u8>, _>::from_raw(1024, 1024, &buffer_content[..]).unwrap();
+    image.save("render.png")?;
     
     Ok(())
 }
