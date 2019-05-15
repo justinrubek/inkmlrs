@@ -1,26 +1,20 @@
-#[macro_use]
-extern crate vulkano;
-extern crate winit;
+extern crate ggez;
 extern crate xml;
 
 use std::sync::Arc;
 
-use image::{ImageBuffer, Rgba};
-use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
-use vulkano::command_buffer::CommandBuffer;
-use vulkano::device::DeviceExtensions;
-use vulkano::instance::{Instance, InstanceExtensions, PhysicalDevice};
-use vulkano::sync::GpuFuture;
-
 mod inkml;
 mod parse;
-mod render;
 
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 
+use ggez::*;
+use ggez::graphics::{DrawMode, Point2};
+
 use self::inkml::{Ink,Node,Traces};
+use self::parse::Point;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let file = File::open("file1.inkml")?;
@@ -28,142 +22,56 @@ fn main() -> Result<(), Box<dyn Error>> {
     let document = parse::parse_inkml(file)?;
     // document.iter().for_each(|n| println!("{:?}", n));
     //let document: Ink = Default::default();
-    
-    draw(document)
-}
 
-// TODO: Move this functionality to the renderer
-fn draw(document: Ink) -> Result<(), Box<dyn Error>> {
-    let instance = Instance::new(None, &InstanceExtensions::none(), None)?;
-    let physical = PhysicalDevice::enumerate(&instance).next().expect("Physical");
-    let context = render::Context::new(physical, &DeviceExtensions::none())?;
-    
-    let mut renderer = {
-        render::Renderer::new(context.clone())?
-    };
+    let c = conf::Conf::new();
+    let ctx = &mut Context::load_from_conf("super_simple", "ggez", c)?;
+    let state = &mut State::new(ctx)?;
 
-    use vulkano::format::Format;
-    use vulkano::framebuffer::Framebuffer;
-    use vulkano::image::{Dimensions,StorageImage};
-    let image = StorageImage::new(context.device.clone(),
-        Dimensions::Dim2d { width: 1024, height: 1024 },
-        Format::R8G8B8A8Unorm, Some(context.queue.family()))?;
-    let framebuffer = Arc::new(Framebuffer::start(renderer.render_pass.clone())
-                               .add(image.clone())?
-                               .build()?);
-    
-    use vulkano::command_buffer::AutoCommandBufferBuilder;
-    use vulkano::format::ClearValue;
-    let command_buffer = AutoCommandBufferBuilder::primary_one_time_submit(
-        context.device.clone(),
-        context.queue.family())?
-        .begin_render_pass(framebuffer.clone(), false, vec![[1.0, 0.0, 1.0, 1.0].into()])?;
+    state.ink(document);
 
-    document.iter().filter_map(|n| {
-        match n {
-            inkml::Node::Traces(inkml::Traces::Trace(inkml::Trace { ref vertices })) => {
-                Some(vertices)
-            }
-            _ => None
-        }
-    }).for_each(|vertices| renderer.add_stroke(vertices.clone()));
-
-    let buf = CpuAccessibleBuffer::from_iter(context.device.clone(), BufferUsage::all(),
-                                            (0 .. 1024 * 1024 * 4).map(|_| 0u8))
-                                            .expect("failed to create buffer");
-    
-    let command_buffer = renderer.draw(command_buffer)?
-        .end_render_pass()?
-        .copy_image_to_buffer(image.clone(), buf.clone())?
-        .build()?;
-    
-    let finished = command_buffer.execute(context.queue.clone())?;
-    finished.then_signal_fence_and_flush()?.wait(None)?;
-
-    let buffer_content = buf.read().unwrap();
-    let image = ImageBuffer::<Rgba<u8>, _>::from_raw(1024, 1024, &buffer_content[..]).unwrap();
-    image.save("render.png")?;
-    
+    event::run(ctx, state)?;
+    // draw(document)
     Ok(())
 }
 
-fn window() {
-    let mut events_loop = winit::EventsLoop::new();
-    let mut lpressed = false;
-    let _window = winit::Window::new(&events_loop).unwrap();
+struct State {
+    document: Option<Ink>,
+}
 
-    println!(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<inkml:ink xmlns:inkml="http://www.w3.org/TR/InkML">
-  <inkml:definitions>
-    <inkml:context xml:id="ctx0">
-      <inkml:inkSource xml:id="inkSrc0">
-        <inkml:traceFormat>
-          <inkml:channel name="X" type="decimal"/>
-          <inkml:channel name="Y" type="decimal"/>
-        </inkml:traceFormat>
-      </inkml:inkSource>
-    </inkml:context>
-    <inkml:brush xml:id="br0">
-      <inkml:brushProperty name="width" value=".07" units="mm"/>
-      <inkml:brushProperty name="color" value="\#00AA24" />
-    </inkml:brush>
-  </inkml:definitions>
-  <inkml:traceGroup>"#);
+impl State {
+    fn new(_ctx: &mut Context) -> GameResult<State> {
+        Ok(State { document: None })
+    }
 
-    events_loop.run_forever(|event| {
-        // println!("{:?}", event);
-        use winit::Event::WindowEvent;
-        use winit::ElementState;
-        use winit::WindowEvent::*;
-        use winit::ControlFlow;
-        
-        match event {
-            WindowEvent {
-                event: CloseRequested,
-                ..
-            } => ControlFlow::Break,
-            
-            /*
-            WindowEvent {
-                event: winit::WindowEvent::Touch(touch),
-                ..
-            } => {
-                println("       {} {},", touch.location.x, touch.location.y);
-                ControlFlow::Continue
-            }
-            */
-            WindowEvent {
-                event: CursorMoved { position, .. },
-                ..
-            } => {
-                if lpressed {
-                    println!("      {} {},", position.x, position.y);
+    fn ink(&mut self, document: Ink) {
+        self.document = Some(document);
+    }
+}
+
+impl event::EventHandler for State {
+    fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
+        Ok(())
+    }
+
+    fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
+        graphics::clear(ctx);
+
+        // Collect traces into individual segment groups (each stroke)
+        if let Some(ink) = &self.document {
+            ink.iter().for_each(|n| {
+                match n {
+                    inkml::Node::Traces(inkml::Traces::Trace(inkml::Trace { ref vertices })) => {
+                        for pts in vertices.windows(2) {
+                            graphics::line(ctx, 
+                                           &[Point2::new(pts[0][0], pts[0][1]), Point2::new(pts[1][0], pts[1][1])],
+                                           5.0);
+                        }
+                    }
+                    _ => {}
                 }
-                ControlFlow::Continue    
-            },
-
-            WindowEvent {
-                event: MouseInput { state, button: winit::MouseButton::Left, .. },
-                ..
-            } => {
-                match state {
-                    ElementState::Pressed => {
-                        lpressed = true;
-                        println!("    <inkml:trace contextRef=\"#ctx0\" brushRef=\"#br0\">");
-                    },
-                    ElementState::Released => { 
-                        lpressed = false;
-                        println!("    </inkml:trace>");
-                    },
-                    
-                }
-                ControlFlow::Continue
-            },
-            _ => ControlFlow::Continue
+            });
         }
-    });
-             
-    println!("  </inkml:traceGroup>
-</inkml:ink>");
-
+        graphics::present(ctx);
+        Ok(())
+    }
 }

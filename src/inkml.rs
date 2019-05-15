@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::render::Point;
+use crate::parse::Point;
 
 #[derive(Debug, Default)]
 pub struct Ink {

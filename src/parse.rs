@@ -5,7 +5,8 @@ use xml::name::OwnedName;
 use xml::reader::{EventReader, XmlEvent};
 
 use crate::inkml::{Ink, Trace, TraceGroup, Traces};
-use crate::render::Point;
+
+pub type Point = [f32; 2];
 
 #[derive(Debug)]
 pub enum Node {
@@ -18,7 +19,7 @@ fn parse_vertices(data: String) -> Vec<Point> {
     data.split(',').filter_map(|pos| {
         let xy = pos.split(' ').filter_map(|s| s.parse::<f32>().ok()).collect::<Vec<_>>();
         if xy.len() > 0 {
-            Some(Point(xy[0].clone(), xy[1].clone() ))
+            Some([xy[0].clone(), xy[1].clone() ])
         } else {
             None
         }
