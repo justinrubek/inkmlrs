@@ -64,6 +64,11 @@ impl<'a> Ink {
     pub fn iter(&'a self) -> NodeIter<'a> {
         (&self).into_iter()
     }
+
+    // Add a new trace to the document
+    pub fn draw(&mut self, trace: &Vec<Point>) {
+       self.traces.push(Traces::Trace(Trace { vertices: trace.clone() }));
+    }
 }
 
 impl<'a> IntoIterator for &'a Ink {
