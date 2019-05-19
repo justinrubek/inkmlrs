@@ -1,8 +1,6 @@
 extern crate ggez;
 extern crate xml;
 
-use std::sync::Arc;
-
 mod inkml;
 mod parse;
 
@@ -11,17 +9,19 @@ use std::fs::File;
 use std::io::BufReader;
 
 use ggez::*;
-use ggez::graphics::{self, Color, DrawMode, Point2};
+use ggez::graphics::{self, Point2};
 
-use self::inkml::{Ink,Node,Traces};
-use self::parse::Point;
+use self::inkml::{Ink};
 
 macro_rules! draw_trace {
     ($ctx:expr, $vertices:expr) => {
         for pts in $vertices.windows(2) {
-            graphics::line($ctx, 
+            match graphics::line($ctx, 
                            &[Point2::new(pts[0][0], pts[0][1]), Point2::new(pts[1][0], pts[1][1])],
-                           5.0);
+                           5.0) {
+                Ok(_) => { },
+                Err(e) => panic!("{:?}", e)
+            }
         }
     }
 }
@@ -110,12 +110,7 @@ impl event::EventHandler for State {
 
         // Collect traces into individual segment groups (each stroke)
         // Draw the 'current' trace (currently being drawn by user)
-        for pts in self.current_trace.windows(2) {
-            graphics::line(ctx, 
-                           &[Point2::new(pts[0][0], pts[0][1]), Point2::new(pts[1][0], pts[1][1])],
-                           5.0);
-        
-        }
+        draw_trace!(ctx, self.current_trace);
         
         graphics::present(ctx);
         Ok(())
@@ -144,7 +139,7 @@ impl event::EventHandler for State {
         self.current_trace.clear();
     } 
     
-    fn mouse_motion_event(&mut self, _ctx: &mut Context, ms: event::MouseState, x: i32, y: i32, xrel: i32, yrel: i32) {
+    fn mouse_motion_event(&mut self, _ctx: &mut Context, _ms: event::MouseState, x: i32, y: i32, xrel: i32, yrel: i32) {
         if self.mouse_down {
             self.pos_x = x as f32;
             self.pos_y = y as f32;
