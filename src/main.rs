@@ -1,4 +1,6 @@
 extern crate ggez;
+#[macro_use]
+extern crate structopt;
 extern crate xml;
 
 mod inkml;
@@ -7,6 +9,8 @@ mod parse;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
+
+use structopt::StructOpt;
 
 use ggez::*;
 use ggez::graphics::{self, Point2};
@@ -27,21 +31,33 @@ macro_rules! draw_trace {
     }
 }
 
+#[derive(Debug, StructOpt)]
+#[structopt(name = "inkml-rs", about = "Draw lines using InkML")]
+struct Opt {
+    #[structopt(long, short, default_value = "input.inkml")]
+    /// The file to read from initially
+    input: String,
+    
+    #[structopt(long, short, default_value = "output.inkml")]
+    /// The file to save to
+    output: String,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
-    //let file = File::open("file1.inkml")?;
-    let file = File::open("output.inkml")?;
+    let opt = Opt::from_args();
+    
+    let file = File::open(opt.input)?;
     let file = BufReader::new(file);
     let document = parse::parse_inkml(file)?;
 
     let c = conf::Conf::new();
     let ctx = &mut Context::load_from_conf("inkmlrender", "justinrubek", c)?;
-    let state = &mut State::new(ctx)?;
-
-    state.ink(document);
+    
+    let state = &mut State::new(ctx, document, &opt.output)?;
     state.draw_document(ctx);
 
     event::run(ctx, state)?;
-    // draw(document)
+    
     Ok(())
 }
 
@@ -53,25 +69,23 @@ struct State {
     mouse_down: bool,
     current_trace: Vec<[f32; 2]>, // The trace currently being drawn by the user
     current_trace_all: Vec<[f32; 2]>, // A buffer used to keep the entirety of the current trace as an optimization
+    output_filename: String,
 }
 
 impl State {
-    fn new(ctx: &mut Context) -> GameResult<State> {
+    fn new(ctx: &mut Context, document: Ink, out_file: &str) -> GameResult<State> {
         let canvas = graphics::Canvas::with_window_size(ctx)?;
         
         Ok(State { 
-            document: None, 
+            document: Some(document), 
             canvas,
             pos_x: 100.0, 
             pos_y: 100.0, 
             mouse_down: false, 
             current_trace: Vec::new(), 
             current_trace_all: Vec::new(),
+            output_filename: String::from(out_file),
         }) 
-    }
-
-    fn ink(&mut self, document: Ink) {
-        self.document = Some(document);
     }
 
     fn draw_document(&mut self, ctx: &mut Context) {
@@ -109,7 +123,6 @@ impl event::EventHandler for State {
             0.0
         )?;
 
-        // Collect traces into individual segment groups (each stroke)
         // Draw the 'current' trace (currently being drawn by user)
         draw_trace!(ctx, self.current_trace);
         
@@ -119,12 +132,10 @@ impl event::EventHandler for State {
     
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: event::MouseButton, x: i32, y: i32) {
         self.mouse_down = true;
-        println!("Mouse button pressed: {:?}, x: {}, y: {}", button, x, y);
     }
 
     fn mouse_button_up_event(&mut self, ctx: &mut Context, button: event::MouseButton, x: i32, y: i32) {
         self.mouse_down = false;
-        println!("Mouse button released: {:?}, x: {}, y: {}", button, x, y);
 
         // Add the newly created trace to our canvas
         graphics::set_canvas(ctx, Some(&self.canvas));
@@ -152,17 +163,14 @@ impl event::EventHandler for State {
             graphics::set_canvas(ctx, None);
             self.current_trace_all.append(&mut self.current_trace);
         }
-        println!(
-            "Mouse motion, x: {}, y: {}, relative x: {}, relative y: {}",
-            x, y, xrel, yrel
-        );
     } 
 
     fn key_down_event(&mut self, _ctx: &mut Context, keycode: Keycode, keymod: Mod, repeat: bool) {
         if keycode == Keycode::W && !repeat {
             if let Some(ink) = &mut self.document {
-                println!("Writing to file");
-                let mut f = File::create("output.inkml").unwrap();
+                let filename = &self.output_filename;
+                println!("Writing to file {}", filename);
+                let mut f = File::create(filename).unwrap();
                 ink.write_to(&mut f);
             }
                         

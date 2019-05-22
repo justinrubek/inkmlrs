@@ -52,7 +52,7 @@ impl<'a> Iterator for NodeIter<'a> {
             Some(Node::Traces(ref trace_node)) => {
                 match trace_node {
                     Traces::TraceGroup(ref trace_group) => {
-                        self.queue.extend(trace_group.traces.iter() .map(|tg| Node::Traces(tg)));
+                        self.queue.extend(trace_group.traces.iter().map(|tg| Node::Traces(tg)));
                     }
                     _ => { }
                 }
@@ -86,9 +86,11 @@ impl<'a> Ink {
     }
 
     fn write_tracegroup<W: Write>(w: &mut xml::EventWriter<W>, group: &TraceGroup) {
+        w.write(XmlEvent::start_element("traceGroup").attr("contextRef", "#ctx0").attr("brushRef", "#br0"));
         for traces in &group.traces {
             Ink::write_traces(w, &traces);
         }
+        w.write(XmlEvent::end_element());
     }
 
     fn write_traces<W: Write>(w: &mut xml::EventWriter<W>, traces: &Traces) {
