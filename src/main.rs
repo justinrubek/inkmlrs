@@ -35,9 +35,9 @@ macro_rules! draw_trace {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "inkml-rs", about = "Draw lines using InkML")]
 struct Opt {
-    #[structopt(long, short, default_value = "input.inkml", parse(from_os_str))]
+    #[structopt(long, short, parse(from_os_str))]
     /// The file to read from initially
-    input: PathBuf,
+    input: Option<PathBuf>,
     
     #[structopt(long, short, parse(from_os_str))]
     /// The file to save to. Defaults to stdout if not present
@@ -47,9 +47,15 @@ struct Opt {
 fn main() -> Result<(), Box<dyn Error>> {
     let opt = Opt::from_args();
     
-    let file = File::open(opt.input)?;
-    let file = BufReader::new(file);
-    let document = parse::parse_inkml(file)?;
+    let document: Ink = {
+        if let Some(path) = opt.input {
+            let file = File::open(path)?;
+            let file = BufReader::new(file);
+            parse::parse_inkml(file)?
+        } else {
+           Default::default() 
+        }
+    };
 
     let c = conf::Conf::new();
     let ctx = &mut Context::load_from_conf("inkmlrender", "justinrubek", c)?;

@@ -120,9 +120,9 @@ impl<'a> Ink {
         w.write(XmlEvent::end_element()); // context
 
         w.write(XmlEvent::start_element("brush").attr("xml:id", "br0"));
-        w.write(XmlEvent::start_element("brushProperty").attr("name", "width").attr("value", "3").attr("units", "cm"));
+        w.write(XmlEvent::start_element("brushProperty").attr("name", "width").attr("value", "3").attr("units", "mm"));
         w.write(XmlEvent::end_element());
-        w.write(XmlEvent::start_element("brushProperty").attr("name", "height").attr("value", "3").attr("units", "cm"));
+        w.write(XmlEvent::start_element("brushProperty").attr("name", "height").attr("value", "3").attr("units", "mm"));
         w.write(XmlEvent::end_element());
         w.write(XmlEvent::start_element("brushProperty").attr("name", "color").attr("value", "\\#FFFFFF"));
         w.write(XmlEvent::end_element());
