@@ -4,8 +4,9 @@ use std::io::Read;
 use xml::name::OwnedName;
 use xml::reader::{EventReader, XmlEvent};
 
+use crate::inkml::{Ink, Trace, TraceGroup, Traces};
 
-use super::inkml::{Ink, Trace, TraceGroup, Traces};
+pub type Point = [f32; 2];
 
 #[derive(Debug)]
 pub enum Node {
@@ -14,11 +15,11 @@ pub enum Node {
     TraceGroup(TraceGroup),
 }
 
-fn parse_vertices(data: String) -> Vec<(f64,f64)> {
+fn parse_vertices(data: String) -> Vec<Point> {
     data.split(',').filter_map(|pos| {
-        let xy = pos.split(' ').filter_map(|s| s.parse::<f64>().ok()).collect::<Vec<_>>();
+        let xy = pos.split(' ').filter_map(|s| s.parse::<f32>().ok()).collect::<Vec<_>>();
         if xy.len() > 0 {
-            Some((xy[0].clone(), xy[1].clone()))
+            Some([xy[0].clone(), xy[1].clone() ])
         } else {
             None
         }

@@ -1,4 +1,4 @@
-extern crate winit;
+extern crate ggez;
 extern crate xml;
 
 mod inkml;
@@ -8,105 +8,152 @@ use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 
-use self::inkml::{Node, Traces};
+use ggez::*;
+use ggez::graphics::{self, Point2};
+
+use self::inkml::{Ink};
+
+macro_rules! draw_trace {
+    ($ctx:expr, $vertices:expr) => {
+        for pts in $vertices.windows(2) {
+            match graphics::line($ctx, 
+                           &[Point2::new(pts[0][0], pts[0][1]), Point2::new(pts[1][0], pts[1][1])],
+                           5.0) {
+                Ok(_) => { },
+                Err(e) => panic!("{:?}", e)
+            }
+        }
+    }
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
     let file = File::open("file1.inkml")?;
     let file = BufReader::new(file);
     let document = parse::parse_inkml(file)?;
-    // println!("{:?}", document);
-    // document.iter().for_each(|n| println!("{:?}", n));
-    
-    // Collect a list of all vertice lists to be rendered
-    document.iter().filter_map(|n| {
-        match n {
-            inkml::Node::Traces(inkml::Traces::Trace(inkml::Trace { ref vertices })) => {
-                Some(vertices)
-            }
-            _ => None
-        }
-    });
-    
+
+    let c = conf::Conf::new();
+    let ctx = &mut Context::load_from_conf("inkmlrender", "justinrubek", c)?;
+    let state = &mut State::new(ctx)?;
+
+    state.ink(document);
+    state.draw_document(ctx);
+
+    event::run(ctx, state)?;
+    // draw(document)
     Ok(())
 }
 
-fn window() {
-    let mut events_loop = winit::EventsLoop::new();
-    let mut lpressed = false;
-    let _window = winit::Window::new(&events_loop).unwrap();
-
-    println!(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<inkml:ink xmlns:inkml="http://www.w3.org/TR/InkML">
-  <inkml:definitions>
-    <inkml:context xml:id="ctx0">
-      <inkml:inkSource xml:id="inkSrc0">
-        <inkml:traceFormat>
-          <inkml:channel name="X" type="decimal"/>
-          <inkml:channel name="Y" type="decimal"/>
-        </inkml:traceFormat>
-      </inkml:inkSource>
-    </inkml:context>
-    <inkml:brush xml:id="br0">
-      <inkml:brushProperty name="width" value=".07" units="mm"/>
-      <inkml:brushProperty name="color" value="\#00AA24" />
-    </inkml:brush>
-  </inkml:definitions>
-  <inkml:traceGroup>"#);
-
-    events_loop.run_forever(|event| {
-        // println!("{:?}", event);
-        use winit::Event::WindowEvent;
-        use winit::ElementState;
-        use winit::WindowEvent::*;
-        use winit::ControlFlow;
-        
-        match event {
-            WindowEvent {
-                event: CloseRequested,
-                ..
-            } => ControlFlow::Break,
-            
-            /*
-            WindowEvent {
-                event: winit::WindowEvent::Touch(touch),
-                ..
-            } => {
-                println("       {} {},", touch.location.x, touch.location.y);
-                ControlFlow::Continue
-            }
-            */
-            WindowEvent {
-                event: CursorMoved { position, .. },
-                ..
-            } => {
-                if lpressed {
-                    println!("      {} {},", position.x, position.y);
-                }
-                ControlFlow::Continue    
-            },
-
-            WindowEvent {
-                event: MouseInput { state, button: winit::MouseButton::Left, .. },
-                ..
-            } => {
-                match state {
-                    ElementState::Pressed => {
-                        lpressed = true;
-                        println!("    <inkml:trace contextRef=\"#ctx0\" brushRef=\"#br0\">");
-                    },
-                    ElementState::Released => { 
-                        lpressed = false;
-                        println!("    </inkml:trace>");
-                    },
-                    
-                }
-                ControlFlow::Continue
-            },
-            _ => ControlFlow::Continue
-        }
-    });
-             
-    println!("  </inkml:traceGroup>
-</inkml:ink>");
-
+struct State {
+    document: Option<Ink>,
+    canvas: graphics::Canvas,
+    pos_x: f32,
+    pos_y: f32,
+    mouse_down: bool,
+    current_trace: Vec<[f32; 2]>, // The trace currently being drawn by the user
+    current_trace_all: Vec<[f32; 2]>, // A buffer used to keep the entirety of the current trace as an optimization
 }
+
+impl State {
+    fn new(ctx: &mut Context) -> GameResult<State> {
+        let canvas = graphics::Canvas::with_window_size(ctx)?;
+        
+        Ok(State { 
+            document: None, 
+            canvas,
+            pos_x: 100.0, 
+            pos_y: 100.0, 
+            mouse_down: false, 
+            current_trace: Vec::new(), 
+            current_trace_all: Vec::new(),
+        }) 
+    }
+
+    fn ink(&mut self, document: Ink) {
+        self.document = Some(document);
+    }
+
+    fn draw_document(&mut self, ctx: &mut Context) {
+        if let Some(ink) = &self.document {
+            graphics::set_canvas(ctx, Some(&self.canvas));
+            
+            ink.iter().for_each(|n| {
+                match n {
+                    inkml::Node::Traces(inkml::Traces::Trace(inkml::Trace { ref vertices })) => {
+                        draw_trace!(ctx, vertices)
+                    }
+                    _ => {}
+                }
+            });
+            
+            graphics::set_canvas(ctx, None);
+        }
+        
+    }
+}
+
+impl event::EventHandler for State {
+    fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
+        Ok(())
+    }
+
+    fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
+        graphics::clear(ctx);
+
+        // Draw the canvas containing the already drawn inkml to the screen
+        graphics::draw(
+            ctx,
+            &self.canvas,
+            Point2::new(0.0,0.0),
+            0.0
+        )?;
+
+        // Collect traces into individual segment groups (each stroke)
+        // Draw the 'current' trace (currently being drawn by user)
+        draw_trace!(ctx, self.current_trace);
+        
+        graphics::present(ctx);
+        Ok(())
+    }
+    
+    fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: event::MouseButton, x: i32, y: i32) {
+        self.mouse_down = true;
+        println!("Mouse button pressed: {:?}, x: {}, y: {}", button, x, y);
+    }
+
+    fn mouse_button_up_event(&mut self, ctx: &mut Context, button: event::MouseButton, x: i32, y: i32) {
+        self.mouse_down = false;
+        println!("Mouse button released: {:?}, x: {}, y: {}", button, x, y);
+
+        // Add the newly created trace to our canvas
+        graphics::set_canvas(ctx, Some(&self.canvas));
+        draw_trace!(ctx, self.current_trace); 
+        graphics::set_canvas(ctx, None);
+        
+        // Commit points to document and remove from 'current' trace
+        if let Some(ink) = &mut self.document {
+            self.current_trace_all.append(&mut self.current_trace);
+            ink.draw(&self.current_trace_all);
+        }
+        
+        self.current_trace_all.clear();
+    } 
+    
+    fn mouse_motion_event(&mut self, ctx: &mut Context, _ms: event::MouseState, x: i32, y: i32, xrel: i32, yrel: i32) {
+        if self.mouse_down {
+            self.pos_x = x as f32;
+            self.pos_y = y as f32;
+            self.current_trace.push([self.pos_x, self.pos_y]);
+        }
+        if self.current_trace.len() > 300 {
+            graphics::set_canvas(ctx, Some(&self.canvas));
+            draw_trace!(ctx, self.current_trace);
+            graphics::set_canvas(ctx, None);
+            self.current_trace_all.append(&mut self.current_trace);
+        }
+        println!(
+            "Mouse motion, x: {}, y: {}, relative x: {}, relative y: {}",
+            x, y, xrel, yrel
+        );
+    } 
+}
+
