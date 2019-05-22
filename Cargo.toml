@@ -1,6 +1,6 @@
 [package]
 name = "inkmlrs"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["Justin Rubek <rubejus@bvu.edu>"]
 edition = "2018"
 
