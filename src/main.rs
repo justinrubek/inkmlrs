@@ -10,6 +10,7 @@ use std::io::BufReader;
 
 use ggez::*;
 use ggez::graphics::{self, Point2};
+use ggez::event::{self, Keycode, Mod};
 
 use self::inkml::{Ink};
 
@@ -27,7 +28,8 @@ macro_rules! draw_trace {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let file = File::open("file1.inkml")?;
+    //let file = File::open("file1.inkml")?;
+    let file = File::open("output.inkml")?;
     let file = BufReader::new(file);
     let document = parse::parse_inkml(file)?;
 
@@ -155,5 +157,16 @@ impl event::EventHandler for State {
             x, y, xrel, yrel
         );
     } 
+
+    fn key_down_event(&mut self, _ctx: &mut Context, keycode: Keycode, keymod: Mod, repeat: bool) {
+        if keycode == Keycode::W && !repeat {
+            if let Some(ink) = &mut self.document {
+                println!("Writing to file");
+                let mut f = File::create("output.inkml").unwrap();
+                ink.write_to(&mut f);
+            }
+                        
+        }
+    }
 }
 

@@ -1,8 +1,9 @@
 use std::collections::VecDeque;
 use std::error::Error;
+use std::io::Write;
+
 use xml::{EmitterConfig,EventWriter};
 use xml::writer::events::XmlEvent;
-use std::io::Write;
 
 use crate::parse::Point;
 
@@ -75,7 +76,7 @@ impl<'a> Ink {
     }
 
     fn write_trace<W: Write>(w: &mut xml::EventWriter<W>, trace: &Trace) {
-        w.write(XmlEvent::start_element("trace").attr("contextRef", "#ctx0").attr("brushRef", "br0"));
+        w.write(XmlEvent::start_element("trace").attr("contextRef", "#ctx0").attr("brushRef", "#br0"));
         
         for point in &trace.vertices {
             w.write(XmlEvent::characters(&format!("{} {},", point[0], point[1])));
@@ -131,8 +132,13 @@ impl<'a> Ink {
     pub fn write_to<W: Write>(&mut self, w: &mut W) -> Result<(), Box<dyn Error>> {
         // Set up EventWriter
         let mut writer = EmitterConfig::new().perform_indent(true).create_writer(w);
-
         
+        
+        writer.write(XmlEvent::StartDocument {
+            version: xml::common::XmlVersion::Version10,
+            encoding: Some("UTF-8"),
+            standalone: Some(true),
+        });
         // Iterate over and write events for inner nodes
         self.iter().for_each(|n| {
             match n {
