@@ -477,7 +477,7 @@ dependencies = [
 
 [[package]]
 name = "inkmlrs"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "ggez 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.2.15 (registry+https://github.com/rust-lang/crates.io-index)",

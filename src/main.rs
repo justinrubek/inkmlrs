@@ -8,7 +8,8 @@ mod parse;
 
 use std::error::Error;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Write};
+use std::path::PathBuf;
 
 use structopt::StructOpt;
 
@@ -34,13 +35,13 @@ macro_rules! draw_trace {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "inkml-rs", about = "Draw lines using InkML")]
 struct Opt {
-    #[structopt(long, short, default_value = "input.inkml")]
+    #[structopt(long, short, default_value = "input.inkml", parse(from_os_str))]
     /// The file to read from initially
-    input: String,
+    input: PathBuf,
     
-    #[structopt(long, short, default_value = "output.inkml")]
-    /// The file to save to
-    output: String,
+    #[structopt(long, short, parse(from_os_str))]
+    /// The file to save to. Defaults to stdout if not present
+    output: Option<PathBuf>,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -53,7 +54,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let c = conf::Conf::new();
     let ctx = &mut Context::load_from_conf("inkmlrender", "justinrubek", c)?;
     
-    let state = &mut State::new(ctx, document, &opt.output)?;
+    let state = &mut State::new(ctx, document, opt.output)?;
     state.draw_document(ctx);
 
     event::run(ctx, state)?;
@@ -69,11 +70,11 @@ struct State {
     mouse_down: bool,
     current_trace: Vec<[f32; 2]>, // The trace currently being drawn by the user
     current_trace_all: Vec<[f32; 2]>, // A buffer used to keep the entirety of the current trace as an optimization
-    output_filename: String,
+    output_filename: Option<PathBuf>,
 }
 
 impl State {
-    fn new(ctx: &mut Context, document: Ink, out_file: &str) -> GameResult<State> {
+    fn new(ctx: &mut Context, document: Ink, out_file: Option<PathBuf>) -> GameResult<State> {
         let canvas = graphics::Canvas::with_window_size(ctx)?;
         
         Ok(State { 
@@ -84,7 +85,7 @@ impl State {
             mouse_down: false, 
             current_trace: Vec::new(), 
             current_trace_all: Vec::new(),
-            output_filename: String::from(out_file),
+            output_filename: out_file,
         }) 
     }
 
@@ -168,10 +169,13 @@ impl event::EventHandler for State {
     fn key_down_event(&mut self, _ctx: &mut Context, keycode: Keycode, keymod: Mod, repeat: bool) {
         if keycode == Keycode::W && !repeat {
             if let Some(ink) = &mut self.document {
-                let filename = &self.output_filename;
-                println!("Writing to file {}", filename);
-                let mut f = File::create(filename).unwrap();
-                ink.write_to(&mut f);
+                if let Some(filename) = &self.output_filename {
+                    println!("Writing to file {:?}", filename);
+                    ink.write_to(&mut File::create(filename).unwrap());
+                } else {
+                    ink.write_to(&mut std::io::stdout());
+                    
+                }
             }
                         
         }
