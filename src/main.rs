@@ -30,8 +30,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let file = File::open("file1.inkml")?;
     let file = BufReader::new(file);
     let document = parse::parse_inkml(file)?;
-    // document.iter().for_each(|n| println!("{:?}", n));
-    //let document: Ink = Default::default();
 
     let c = conf::Conf::new();
     let ctx = &mut Context::load_from_conf("inkmlrender", "justinrubek", c)?;
@@ -51,7 +49,8 @@ struct State {
     pos_x: f32,
     pos_y: f32,
     mouse_down: bool,
-    current_trace: Vec<[f32; 2]>,
+    current_trace: Vec<[f32; 2]>, // The trace currently being drawn by the user
+    current_trace_all: Vec<[f32; 2]>, // A buffer used to keep the entirety of the current trace as an optimization
 }
 
 impl State {
@@ -65,6 +64,7 @@ impl State {
             pos_y: 100.0, 
             mouse_down: false, 
             current_trace: Vec::new(), 
+            current_trace_all: Vec::new(),
         }) 
     }
 
@@ -79,7 +79,6 @@ impl State {
             ink.iter().for_each(|n| {
                 match n {
                     inkml::Node::Traces(inkml::Traces::Trace(inkml::Trace { ref vertices })) => {
-                        // self.draw_trace(ctx, &vertices);
                         draw_trace!(ctx, vertices)
                     }
                     _ => {}
@@ -125,25 +124,31 @@ impl event::EventHandler for State {
         self.mouse_down = false;
         println!("Mouse button released: {:?}, x: {}, y: {}", button, x, y);
 
-        // Commit points to document and remove from 'current' trace
-        if let Some(ink) = &mut self.document {
-            ink.draw(&self.current_trace);
-        }
-        
         // Add the newly created trace to our canvas
         graphics::set_canvas(ctx, Some(&self.canvas));
         draw_trace!(ctx, self.current_trace); 
         graphics::set_canvas(ctx, None);
-
         
-        self.current_trace.clear();
+        // Commit points to document and remove from 'current' trace
+        if let Some(ink) = &mut self.document {
+            self.current_trace_all.append(&mut self.current_trace);
+            ink.draw(&self.current_trace_all);
+        }
+        
+        self.current_trace_all.clear();
     } 
     
-    fn mouse_motion_event(&mut self, _ctx: &mut Context, _ms: event::MouseState, x: i32, y: i32, xrel: i32, yrel: i32) {
+    fn mouse_motion_event(&mut self, ctx: &mut Context, _ms: event::MouseState, x: i32, y: i32, xrel: i32, yrel: i32) {
         if self.mouse_down {
             self.pos_x = x as f32;
             self.pos_y = y as f32;
             self.current_trace.push([self.pos_x, self.pos_y]);
+        }
+        if self.current_trace.len() > 300 {
+            graphics::set_canvas(ctx, Some(&self.canvas));
+            draw_trace!(ctx, self.current_trace);
+            graphics::set_canvas(ctx, None);
+            self.current_trace_all.append(&mut self.current_trace);
         }
         println!(
             "Mouse motion, x: {}, y: {}, relative x: {}, relative y: {}",
