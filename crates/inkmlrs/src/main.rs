@@ -25,7 +25,7 @@ macro_rules! draw_trace {
             match Mesh::new_line($ctx, 
                            &[[pts[0][0], pts[0][1]], [pts[1][0], pts[1][1]]],
                            5.0,
-                           graphics::WHITE
+                           graphics::Color::WHITE
                            ) {
                 Ok(_) => { },
                 Err(e) => panic!("{:?}", e)
@@ -61,17 +61,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let c = conf::Conf::new();
     // let ctx = &mut Context::load_from_conf("inkmlrender", "justinrubek", c)?;
-    let (mut ctx, mut event_loop) = ContextBuilder::new("inkmlrender", "justinrubek")
+    let (mut ctx, event_loop) = ContextBuilder::new("inkmlrender", "justinrubek")
         .with_conf_file(true)
         .build()?;
 
     
-    let state = &mut State::new(&mut ctx, document, opt.output)?;
+    let mut state = State::new(&mut ctx, document, opt.output)?;
     state.draw_document(&mut ctx);
 
-    event::run(&mut ctx, &mut event_loop, state)?;
-    
-    Ok(())
+    event::run(ctx, event_loop, state);
 }
 
 struct State {
@@ -120,13 +118,13 @@ impl State {
     }
 }
 
-impl event::EventHandler for State {
+impl event::EventHandler<ggez::GameError> for State {
     fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        graphics::clear(ctx, graphics::BLACK);
+        graphics::clear(ctx, graphics::Color::BLACK);
 
         // Draw the canvas containing the already drawn inkml to the screen
         // graphics::draw(
