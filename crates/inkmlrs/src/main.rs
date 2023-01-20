@@ -28,7 +28,7 @@ macro_rules! draw_trace {
                            graphics::Color::WHITE
                            ) {
                 Ok(m) => { 
-                    graphics::draw($ctx, &m, graphics::DrawParam::default()).unwrap();
+                    graphics::draw($ctx, &m, graphics::DrawParam::default());
                 },
                 Err(e) => panic!("{:?}", e)
             }
