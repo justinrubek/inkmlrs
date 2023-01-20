@@ -1,6 +1,6 @@
 # InkML
 
-This is currently a work in progress Rust application. 
+This is ~~currently a work in progress Rust application~~ not in active development, but not entirely abandoned. 
 The goal is to create a renderer capable of displaying InkML files and to
 expand it to be capable of accepting mouse/touch input to draw
 
