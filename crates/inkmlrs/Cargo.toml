@@ -3,6 +3,10 @@ name = "inkmlrs"
 version = "0.0.4"
 authors = ["Justin Rubek <rubejus@bvu.edu>"]
 edition = "2018"
+license = "MIT"
+description = "Create and parse inkml files"
+homepage = "https://github.com/justinrubek/inkmlrs"
+repository = "https://github.com/justinrubek/inkmlrs"
 
 [dependencies]
 ggez = "0.7.0"
