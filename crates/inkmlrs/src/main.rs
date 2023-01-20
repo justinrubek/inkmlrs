@@ -14,17 +14,19 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 use ggez::*;
-use ggez::graphics::{self, Point2};
-use ggez::event::{self, Keycode, Mod};
+use ggez::graphics::{self, Mesh};
+use ggez::event::{self, KeyCode, KeyMods};
 
 use self::inkml::{Ink};
 
 macro_rules! draw_trace {
     ($ctx:expr, $vertices:expr) => {
         for pts in $vertices.windows(2) {
-            match graphics::line($ctx, 
-                           &[Point2::new(pts[0][0], pts[0][1]), Point2::new(pts[1][0], pts[1][1])],
-                           5.0) {
+            match Mesh::new_line($ctx, 
+                           &[[pts[0][0], pts[0][1]], [pts[1][0], pts[1][1]]],
+                           5.0,
+                           graphics::WHITE
+                           ) {
                 Ok(_) => { },
                 Err(e) => panic!("{:?}", e)
             }
@@ -58,12 +60,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let c = conf::Conf::new();
-    let ctx = &mut Context::load_from_conf("inkmlrender", "justinrubek", c)?;
-    
-    let state = &mut State::new(ctx, document, opt.output)?;
-    state.draw_document(ctx);
+    // let ctx = &mut Context::load_from_conf("inkmlrender", "justinrubek", c)?;
+    let (mut ctx, mut event_loop) = ContextBuilder::new("inkmlrender", "justinrubek")
+        .with_conf_file(true)
+        .build()?;
 
-    event::run(ctx, state)?;
+    
+    let state = &mut State::new(&mut ctx, document, opt.output)?;
+    state.draw_document(&mut ctx);
+
+    event::run(&mut ctx, &mut event_loop, state)?;
     
     Ok(())
 }
@@ -120,15 +126,15 @@ impl event::EventHandler for State {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        graphics::clear(ctx);
+        graphics::clear(ctx, graphics::BLACK);
 
         // Draw the canvas containing the already drawn inkml to the screen
-        graphics::draw(
-            ctx,
-            &self.canvas,
-            Point2::new(0.0,0.0),
-            0.0
-        )?;
+        // graphics::draw(
+        //     ctx,
+        //     &self.canvas,
+        //     [0.0,0.0],
+        //     0.0
+        // )?;
 
         // Draw the 'current' trace (currently being drawn by user)
         draw_trace!(ctx, self.current_trace);
@@ -137,11 +143,11 @@ impl event::EventHandler for State {
         Ok(())
     }
     
-    fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: event::MouseButton, x: i32, y: i32) {
+    fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: event::MouseButton, x: f32, y: f32) {
         self.mouse_down = true;
     }
 
-    fn mouse_button_up_event(&mut self, ctx: &mut Context, button: event::MouseButton, x: i32, y: i32) {
+    fn mouse_button_up_event(&mut self, ctx: &mut Context, button: event::MouseButton, x: f32, y: f32) {
         self.mouse_down = false;
 
         // Add the newly created trace to our canvas
@@ -158,7 +164,7 @@ impl event::EventHandler for State {
         self.current_trace_all.clear();
     } 
     
-    fn mouse_motion_event(&mut self, ctx: &mut Context, _ms: event::MouseState, x: i32, y: i32, xrel: i32, yrel: i32) {
+    fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, xrel: f32, yrel: f32) {
         if self.mouse_down {
             self.pos_x = x as f32;
             self.pos_y = y as f32;
@@ -172,8 +178,8 @@ impl event::EventHandler for State {
         }
     } 
 
-    fn key_down_event(&mut self, _ctx: &mut Context, keycode: Keycode, keymod: Mod, repeat: bool) {
-        if keycode == Keycode::W && !repeat {
+    fn key_down_event(&mut self, _ctx: &mut Context, keycode: KeyCode, keymod: KeyMods, repeat: bool) {
+        if keycode == KeyCode::W && !repeat {
             if let Some(ink) = &mut self.document {
                 if let Some(filename) = &self.output_filename {
                     println!("Writing to file {:?}", filename);

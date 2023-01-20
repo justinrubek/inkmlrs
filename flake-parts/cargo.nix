@@ -97,6 +97,7 @@
       pkgs.libxkbcommon
       pkgs.wayland
       pkgs.clang
+      pkgs.libGL
     ];
     extraNativeBuildInputs = [
     ];
