@@ -27,7 +27,9 @@ macro_rules! draw_trace {
                            5.0,
                            graphics::Color::WHITE
                            ) {
-                Ok(_) => { },
+                Ok(m) => { 
+                    graphics::draw($ctx, &m, graphics::DrawParam::default()).unwrap();
+                },
                 Err(e) => panic!("{:?}", e)
             }
         }
@@ -127,12 +129,11 @@ impl event::EventHandler<ggez::GameError> for State {
         graphics::clear(ctx, graphics::Color::BLACK);
 
         // Draw the canvas containing the already drawn inkml to the screen
-        // graphics::draw(
-        //     ctx,
-        //     &self.canvas,
-        //     [0.0,0.0],
-        //     0.0
-        // )?;
+        graphics::draw(
+            ctx,
+            &self.canvas,
+            graphics::DrawParam::default(),
+        )?;
 
         // Draw the 'current' trace (currently being drawn by user)
         draw_trace!(ctx, self.current_trace);
