@@ -46,14 +46,13 @@ impl<'a> Iterator for NodeIter<'a> {
 
         match next {
             Some(Node::Ink(ink)) => {
-                self.queue
-                    .extend(ink.traces.iter().map(Node::Traces));
+                self.queue.extend(ink.traces.iter().map(Node::Traces));
             }
 
             Some(Node::Traces(Traces::TraceGroup(ref trace_group))) => {
                 self.queue
                     .extend(trace_group.traces.iter().map(Node::Traces));
-            },
+            }
 
             _ => {}
         }
@@ -90,7 +89,10 @@ impl<'a> Ink {
         Ok(())
     }
 
-    fn write_tracegroup<W: Write>(w: &mut xml::EventWriter<W>, group: &TraceGroup) -> InkmlResult<()> {
+    fn write_tracegroup<W: Write>(
+        w: &mut xml::EventWriter<W>,
+        group: &TraceGroup,
+    ) -> InkmlResult<()> {
         w.write(
             XmlEvent::start_element("traceGroup")
                 .attr("contextRef", "#ctx0")
@@ -178,19 +180,19 @@ impl<'a> Ink {
             standalone: Some(true),
         })?;
         // Iterate over and write events for inner nodes
-        self.iter().map(|n| match n {
-            Node::Ink(ink) => {
-                writer.write(
-                    XmlEvent::start_element("ink").ns("inkml", "https://www.w3.org/TR/InkML"),
-                )?;
+        self.iter()
+            .map(|n| match n {
+                Node::Ink(ink) => {
+                    writer.write(
+                        XmlEvent::start_element("ink").ns("inkml", "https://www.w3.org/TR/InkML"),
+                    )?;
 
-                Ink::write_definitions(&mut writer, ink)
-            }
+                    Ink::write_definitions(&mut writer, ink)
+                }
 
-            Node::Traces(traces) => {
-                Ink::write_traces(&mut writer, traces)
-            }
-        }).collect::<InkmlResult<Vec<_>>>()?;
+                Node::Traces(traces) => Ink::write_traces(&mut writer, traces),
+            })
+            .collect::<InkmlResult<Vec<_>>>()?;
 
         writer.write(XmlEvent::end_element())?;
         Ok(())

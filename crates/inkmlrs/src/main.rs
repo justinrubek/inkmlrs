@@ -104,8 +104,11 @@ impl State {
         if let Some(ink) = &self.document {
             graphics::set_canvas(ctx, Some(&self.canvas));
 
-            ink.iter().for_each(|n| if let inkml::Node::Traces(inkml::Traces::Trace(inkml::Trace { ref vertices })) = n {
-                draw_trace!(ctx, vertices)
+            ink.iter().for_each(|n| {
+                if let inkml::Node::Traces(inkml::Traces::Trace(inkml::Trace { ref vertices })) = n
+                {
+                    draw_trace!(ctx, vertices)
+                }
             });
 
             graphics::set_canvas(ctx, None);
