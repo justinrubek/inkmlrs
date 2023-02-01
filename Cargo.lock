@@ -1076,6 +1076,7 @@ version = "0.0.4"
 dependencies = [
  "ggez",
  "structopt",
+ "thiserror",
  "xml-rs",
 ]
 
