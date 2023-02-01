@@ -22,8 +22,8 @@ fn parse_vertices(data: String) -> Vec<Point> {
                 .split(' ')
                 .filter_map(|s| s.parse::<f32>().ok())
                 .collect::<Vec<_>>();
-            if xy.len() > 0 {
-                Some([xy[0].clone(), xy[1].clone()])
+            if xy.is_empty() {
+                Some([xy[0], xy[1]])
             } else {
                 None
             }
@@ -67,7 +67,7 @@ pub fn parse_inkml<R: Read>(inkml: R) -> Result<Ink, Box<dyn Error>> {
 
                     match node {
                         Node::Ink(ink) => {
-                            if let None = top {
+                            if top.is_none() {
                                 root = ink;
                             }
                         }
@@ -87,19 +87,13 @@ pub fn parse_inkml<R: Read>(inkml: R) -> Result<Ink, Box<dyn Error>> {
                             }
                             _ => {}
                         },
-
-                        _ => {}
                     }
                 }
             }
 
             XmlEvent::Characters(contents) => {
-                match (name_stack.last().map(|s| &s[..]), parse_stack.last_mut()) {
-                    (Some("trace"), Some(&mut Node::Trace(Trace { ref mut vertices }))) => {
-                        vertices.append(&mut parse_vertices(contents));
-                    }
-
-                    _ => {}
+                if let (Some("trace"), Some(&mut Node::Trace(Trace { ref mut vertices }))) = (name_stack.last().map(|s| &s[..]), parse_stack.last_mut()) {
+                    vertices.append(&mut parse_vertices(contents));
                 }
             }
             _ => {}

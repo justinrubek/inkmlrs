@@ -1,5 +1,4 @@
 extern crate ggez;
-#[macro_use]
 extern crate structopt;
 extern crate xml;
 
@@ -9,7 +8,7 @@ mod parse;
 
 use std::error::Error;
 use std::fs::File;
-use std::io::{BufReader, Write};
+use std::io::BufReader;
 use std::path::PathBuf;
 
 use structopt::StructOpt;
@@ -30,7 +29,7 @@ macro_rules! draw_trace {
                 graphics::Color::WHITE,
             ) {
                 Ok(m) => {
-                    graphics::draw($ctx, &m, graphics::DrawParam::default());
+                    graphics::draw($ctx, &m, graphics::DrawParam::default()).unwrap();
                 }
                 Err(e) => panic!("{:?}", e),
             }
@@ -63,7 +62,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let c = conf::Conf::new();
     // let ctx = &mut Context::load_from_conf("inkmlrender", "justinrubek", c)?;
     let (mut ctx, event_loop) = ContextBuilder::new("inkmlrender", "justinrubek")
         .with_conf_file(true)
@@ -106,11 +104,8 @@ impl State {
         if let Some(ink) = &self.document {
             graphics::set_canvas(ctx, Some(&self.canvas));
 
-            ink.iter().for_each(|n| match n {
-                inkml::Node::Traces(inkml::Traces::Trace(inkml::Trace { ref vertices })) => {
-                    draw_trace!(ctx, vertices)
-                }
-                _ => {}
+            ink.iter().for_each(|n| if let inkml::Node::Traces(inkml::Traces::Trace(inkml::Trace { ref vertices })) = n {
+                draw_trace!(ctx, vertices)
             });
 
             graphics::set_canvas(ctx, None);
@@ -132,16 +127,16 @@ impl event::EventHandler<ggez::GameError> for State {
         // Draw the 'current' trace (currently being drawn by user)
         draw_trace!(ctx, self.current_trace);
 
-        graphics::present(ctx);
+        graphics::present(ctx)?;
         Ok(())
     }
 
     fn mouse_button_down_event(
         &mut self,
         _ctx: &mut Context,
-        button: event::MouseButton,
-        x: f32,
-        y: f32,
+        _button: event::MouseButton,
+        _x: f32,
+        _y: f32,
     ) {
         self.mouse_down = true;
     }
@@ -149,9 +144,9 @@ impl event::EventHandler<ggez::GameError> for State {
     fn mouse_button_up_event(
         &mut self,
         ctx: &mut Context,
-        button: event::MouseButton,
-        x: f32,
-        y: f32,
+        _button: event::MouseButton,
+        _x: f32,
+        _y: f32,
     ) {
         self.mouse_down = false;
 
@@ -169,10 +164,10 @@ impl event::EventHandler<ggez::GameError> for State {
         self.current_trace_all.clear();
     }
 
-    fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, xrel: f32, yrel: f32) {
+    fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, _xrel: f32, _yrel: f32) {
         if self.mouse_down {
-            self.pos_x = x as f32;
-            self.pos_y = y as f32;
+            self.pos_x = x;
+            self.pos_y = y;
             self.current_trace.push([self.pos_x, self.pos_y]);
         }
         if self.current_trace.len() > 300 {
@@ -187,16 +182,16 @@ impl event::EventHandler<ggez::GameError> for State {
         &mut self,
         _ctx: &mut Context,
         keycode: KeyCode,
-        keymod: KeyMods,
+        _keymod: KeyMods,
         repeat: bool,
     ) {
         if keycode == KeyCode::W && !repeat {
             if let Some(ink) = &mut self.document {
                 if let Some(filename) = &self.output_filename {
-                    println!("Writing to file {:?}", filename);
-                    ink.write_to(&mut File::create(filename).unwrap());
+                    println!("Writing to file {filename:?}");
+                    ink.write_to(&mut File::create(filename).unwrap()).unwrap();
                 } else {
-                    ink.write_to(&mut std::io::stdout());
+                    ink.write_to(&mut std::io::stdout()).unwrap();
                 }
             }
         }
