@@ -1,9 +1,9 @@
-use std::error::Error;
 use std::io::Read;
 
 use xml::name::OwnedName;
 use xml::reader::{EventReader, XmlEvent};
 
+use crate::error::{InkmlResult, InkmlError};
 use crate::inkml::{Ink, Trace, TraceGroup, Traces};
 
 pub type Point = [f32; 2];
@@ -31,7 +31,7 @@ fn parse_vertices(data: String) -> Vec<Point> {
         .collect::<Vec<_>>()
 }
 
-pub fn parse_inkml<R: Read>(inkml: R) -> Result<Ink, Box<dyn Error>> {
+pub fn parse_inkml<R: Read>(inkml: R) -> InkmlResult<Ink> {
     let parser = EventReader::new(inkml);
 
     let mut name_stack: Vec<String> = vec![]; // Names of elements
@@ -60,7 +60,7 @@ pub fn parse_inkml<R: Read>(inkml: R) -> Result<Ink, Box<dyn Error>> {
             } => {
                 // Check to see if we can attach this to a parent node
                 if ["ink", "trace", "traceGroup"].contains(&&local_name[..]) {
-                    let node = parse_stack.pop().unwrap();
+                    let node = parse_stack.pop().ok_or_else(|| InkmlError::InvalidInkml)?;
                     let top = parse_stack.last_mut();
 
                     name_stack.pop(); // Remove our name from the list of nodes
