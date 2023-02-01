@@ -3,6 +3,7 @@ extern crate ggez;
 extern crate structopt;
 extern crate xml;
 
+mod error;
 mod inkml;
 mod parse;
 
