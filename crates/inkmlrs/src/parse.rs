@@ -3,7 +3,7 @@ use std::io::Read;
 use xml::name::OwnedName;
 use xml::reader::{EventReader, XmlEvent};
 
-use crate::error::{InkmlResult, InkmlError};
+use crate::error::{InkmlError, InkmlResult};
 use crate::inkml::{Ink, Trace, TraceGroup, Traces};
 
 pub type Point = [f32; 2];
@@ -92,7 +92,9 @@ pub fn parse_inkml<R: Read>(inkml: R) -> InkmlResult<Ink> {
             }
 
             XmlEvent::Characters(contents) => {
-                if let (Some("trace"), Some(&mut Node::Trace(Trace { ref mut vertices }))) = (name_stack.last().map(|s| &s[..]), parse_stack.last_mut()) {
+                if let (Some("trace"), Some(&mut Node::Trace(Trace { ref mut vertices }))) =
+                    (name_stack.last().map(|s| &s[..]), parse_stack.last_mut())
+                {
                     vertices.append(&mut parse_vertices(contents));
                 }
             }
